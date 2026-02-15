@@ -10,6 +10,19 @@ APP_DIR="$BUILD_DIR/${APP_NAME}.app"
 DIST_DIR="$ROOT_DIR/dist"
 SIGN_IDENTITY="${SIGN_IDENTITY:-}"
 
+function require_command() {
+  local cmd="$1"
+  if ! command -v "$cmd" >/dev/null 2>&1; then
+    echo "Required command not found: $cmd" >&2
+    exit 1
+  fi
+}
+
+require_command xcrun
+require_command lipo
+
+SDKROOT="$(xcrun --sdk macosx --show-sdk-path)"
+
 rm -rf "$BUILD_DIR"
 mkdir -p "$BUILD_DIR"
 
@@ -43,26 +56,51 @@ cp "$ICON_PNG" "$ICONSET_DIR/icon_512x512@2x.png"
 
 iconutil -c icns "$ICONSET_DIR" -o "$ICON_ICNS"
 
-# Compile the SMC bridge.
-clang \
-  -c \
-  -O2 \
-  -Wall -Wextra \
-  "$ROOT_DIR/App/SMCBridge.c" \
-  -o "$BUILD_DIR/SMCBridge.o"
+# Compile a universal binary (arm64 + x86_64) so releases work on both Apple Silicon and Intel Macs.
+TARGET_TRIPLE_ARM64="arm64-apple-macos13.0"
+TARGET_TRIPLE_X86_64="x86_64-apple-macos13.0"
 
-# Compile and link the Swift menu bar app.
+SMC_OBJ_ARM64="$BUILD_DIR/SMCBridge-arm64.o"
+SMC_OBJ_X86_64="$BUILD_DIR/SMCBridge-x86_64.o"
+
+BIN_ARM64="$BUILD_DIR/${APP_NAME}-arm64"
+BIN_X86_64="$BUILD_DIR/${APP_NAME}-x86_64"
+
+# Compile the SMC bridge (per-arch).
+clang -c -O2 -Wall -Wextra -isysroot "$SDKROOT" -target "$TARGET_TRIPLE_ARM64" "$ROOT_DIR/App/SMCBridge.c" -o "$SMC_OBJ_ARM64"
+clang -c -O2 -Wall -Wextra -isysroot "$SDKROOT" -target "$TARGET_TRIPLE_X86_64" "$ROOT_DIR/App/SMCBridge.c" -o "$SMC_OBJ_X86_64"
+
+# Compile and link the Swift menu bar app (per-arch).
 swiftc \
   -parse-as-library \
   -O \
+  -sdk "$SDKROOT" \
+  -target "$TARGET_TRIPLE_ARM64" \
   -import-objc-header "$ROOT_DIR/App/BridgingHeader.h" \
   "$ROOT_DIR/App/AppMain.swift" \
-  "$BUILD_DIR/SMCBridge.o" \
+  "$SMC_OBJ_ARM64" \
   -framework AppKit \
   -framework Foundation \
   -framework IOKit \
   -framework CoreFoundation \
-  -o "$BUILD_DIR/${APP_NAME}"
+  -o "$BIN_ARM64"
+
+swiftc \
+  -parse-as-library \
+  -O \
+  -sdk "$SDKROOT" \
+  -target "$TARGET_TRIPLE_X86_64" \
+  -import-objc-header "$ROOT_DIR/App/BridgingHeader.h" \
+  "$ROOT_DIR/App/AppMain.swift" \
+  "$SMC_OBJ_X86_64" \
+  -framework AppKit \
+  -framework Foundation \
+  -framework IOKit \
+  -framework CoreFoundation \
+  -o "$BIN_X86_64"
+
+# Combine into a universal binary.
+lipo -create -output "$BUILD_DIR/${APP_NAME}" "$BIN_ARM64" "$BIN_X86_64"
 
 # Build the .app bundle.
 mkdir -p "$APP_DIR/Contents/MacOS"

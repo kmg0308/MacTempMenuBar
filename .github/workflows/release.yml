@@ -1,0 +1,31 @@
+name: Release (macOS)
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    runs-on: macos-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build + Package (zip + dmg)
+        run: |
+          chmod +x build.sh package.sh
+          bash package.sh
+
+      - name: Upload Assets To GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          files: |
+            dist/release/*.zip
+            dist/release/*.dmg
+

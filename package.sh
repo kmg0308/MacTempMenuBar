@@ -43,7 +43,24 @@ fi
 
 VERSION="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$APP_PATH/Contents/Info.plist")"
 TIMESTAMP="$(date '+%Y%m%d-%H%M%S')"
-BASE_NAME="${APP_NAME}-v${VERSION}-${TIMESTAMP}-macOS-arm64"
+
+BIN_PATH="$APP_PATH/Contents/MacOS/$APP_NAME"
+ARCH_SUFFIX="unknown"
+if command -v lipo >/dev/null 2>&1; then
+  ARCHS="$(lipo -archs "$BIN_PATH" 2>/dev/null || true)"
+  if [[ "$ARCHS" == *"arm64"* && "$ARCHS" == *"x86_64"* ]]; then
+    ARCH_SUFFIX="universal"
+  elif [[ "$ARCHS" == *"arm64"* ]]; then
+    ARCH_SUFFIX="arm64"
+  elif [[ "$ARCHS" == *"x86_64"* ]]; then
+    ARCH_SUFFIX="x86_64"
+  fi
+fi
+if [[ "$ARCH_SUFFIX" == "unknown" ]]; then
+  ARCH_SUFFIX="$(uname -m)"
+fi
+
+BASE_NAME="${APP_NAME}-v${VERSION}-${TIMESTAMP}-macOS-${ARCH_SUFFIX}"
 ZIP_PATH="$RELEASE_DIR/${BASE_NAME}.zip"
 DMG_PATH="$RELEASE_DIR/${BASE_NAME}.dmg"
 NOTARY_APP_ZIP="$DIST_DIR/.notary-${BASE_NAME}.zip"

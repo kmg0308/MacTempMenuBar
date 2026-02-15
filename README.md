@@ -1,165 +1,101 @@
 # MacTempMenuBar
 
-Apple Silicon Mac에서 SMC(AppleSMCKeysEndpoint) 온도 센서 값을 읽어서 메뉴바에 `NN` 형태(숫자 only)로 표시하는 최소 메뉴바 앱.
+**한국어 | English**
 
-- 요구사항:
-  - macOS 13 이상 (MenuBarExtra 사용)
-  - Apple Silicon(M1/M2/M3...)에서 동작 확인
+메뉴바에 현재 온도를 `77` 같은 **숫자 하나**로 보여주는 작은 macOS 앱입니다.  
+A tiny macOS menu bar app that shows your current temperature as a **single number**.
 
-- 표시값: 온도 키들 중 가장 뜨거운 센서(자동 선택)
-- 메뉴바 표시: 숫자 only (예: `77`)
-- 색상 경고: 사용자 조정 임계치 기반(기본 85도/95도)
-- 급상승 알림: 10초 내 +8도 상승 감지
-- 스파크라인: 최근 10분 추세 텍스트 그래프
-- 설정 메뉴:
-  - 로그인 시 자동 실행
-  - 갱신 주기 (1초 / 2초 / 5초)
-  - CSV 로그 저장 토글(일별 파일 로테이션)
-  - 로그 폴더 열기
+- Download: [Releases (latest)](https://github.com/kmg0308/MacTempMenuBar/releases/latest)
+- Requirements: macOS 13+ (MenuBarExtra). Tested on Apple Silicon (Intel not tested).
 
-## 다운로드/설치 (비개발자)
+---
 
-1) GitHub Releases에서 최신 버전 다운로드:
-- https://github.com/kmg0308/MacTempMenuBar/releases/latest
+## 한국어
 
-2) `*.dmg`를 받았다면:
-- DMG 열기
-- `MacTempMenuBar.app`을 `/Applications`로 드래그(복사)
+### 기능
+- 메뉴바 숫자 표시(가장 뜨거운 센서를 자동으로 선택)
+- 임계치에 따라 색상 변경(기본 85도/95도, 메뉴에서 조절)
+- 급상승 알림(10초 내 +8도, 선택)
+- 최근 10분 추세(텍스트 그래프)
+- CSV 로그 저장(선택)
+- 로그인 시 자동 실행(선택)
 
-3) `*.zip`을 받았다면:
-- 압축 풀기
-- `MacTempMenuBar.app`을 `/Applications`로 옮기기
+### 설치(비개발자)
+1. [Releases](https://github.com/kmg0308/MacTempMenuBar/releases/latest)에서 `*.dmg` 또는 `*.zip` 다운로드
+2. `MacTempMenuBar.app`을 `/Applications`로 옮기기
+3. 앱 실행하면 메뉴바에 숫자가 뜹니다
 
-4) 실행:
-- `/Applications/MacTempMenuBar.app` 실행
-- Dock 아이콘은 안 보일 수 있고(메뉴바 앱), 상단바에 숫자가 나타납니다.
+### 업데이트
+- 새 버전을 다시 내려받아 `/Applications/MacTempMenuBar.app`을 교체하면 됩니다.
 
-참고(처음 실행 경고):
-- "확인되지 않은 개발자" 경고가 뜨면 Finder에서 앱을 우클릭 -> "열기"를 한 번 해주면 통과되는 경우가 많습니다.
-- 공증(Notarization, 애플 확인 절차)이 된 앱이면 이런 경고가 거의 안 뜹니다.
+### 처음 실행이 막힐 때
+- "확인되지 않은 개발자" 경고가 뜨면 Finder에서 앱 우클릭 -> `열기`를 한 번 선택해보세요.
+- 서명/공증(애플이 "이 앱이 변조되지 않았다"고 확인해주는 절차)이 된 빌드는 이런 경고가 덜 뜹니다.
 
-## 업데이트
-
-- GitHub Releases에서 새 버전을 다시 다운로드
-- 기존 `/Applications/MacTempMenuBar.app`을 새 파일로 교체
-
-## 빌드
+<details>
+<summary>개발자용: 소스에서 빌드</summary>
 
 ```bash
-cd /Users/kangmingyu/Desktop/dev/MacTempMenuBar
 ./build.sh
+open dist/MacTempMenuBar.app
 ```
+</details>
 
-출력:
+<details>
+<summary>유지보수용: 릴리스(배포)</summary>
 
-```
-Built: /Users/kangmingyu/Desktop/dev/MacTempMenuBar/dist/MacTempMenuBar.app
-```
-
-## 실행
-
-Finder에서 `/Users/kangmingyu/Desktop/dev/MacTempMenuBar/dist/MacTempMenuBar.app` 더블클릭.
-
-또는:
+이 레포는 `v0.3.4` 같은 태그를 push하면 GitHub Actions가 zip/dmg를 만들어 Releases에 올립니다.
 
 ```bash
-open /Users/kangmingyu/Desktop/dev/MacTempMenuBar/dist/MacTempMenuBar.app
+git tag v0.3.5
+git push origin v0.3.5
 ```
 
-## 패키징(zip + dmg)
+- 공증까지 자동으로 하고 싶다면 `notary-setup.sh` / `package.sh`와 GitHub Secrets 설정이 필요합니다.
+</details>
+
+---
+
+## English
+
+### Features
+- Shows a single number in the menu bar (auto-picks the hottest sensor)
+- Color changes based on thresholds (defaults 85C/95C, adjustable in the menu)
+- Rapid rise alert (+8C within 10 seconds, optional)
+- 10-minute trend (text sparkline)
+- CSV logging (optional)
+- Launch at login (optional)
+
+### Install (non-developers)
+1. Download `*.dmg` or `*.zip` from [Releases](https://github.com/kmg0308/MacTempMenuBar/releases/latest)
+2. Move `MacTempMenuBar.app` to `/Applications`
+3. Run it and you'll see the number in the menu bar
+
+### Update
+- Download the new version and replace `/Applications/MacTempMenuBar.app`.
+
+### If macOS blocks the first launch
+- In Finder, right click the app -> `Open` (usually fixes the Gatekeeper prompt).
+- Notarized builds (Apple verified) show fewer prompts.
+
+<details>
+<summary>For developers: build from source</summary>
 
 ```bash
-cd /Users/kangmingyu/Desktop/dev/MacTempMenuBar
-bash package.sh
+./build.sh
+open dist/MacTempMenuBar.app
 ```
+</details>
 
-출력:
+<details>
+<summary>For maintainers: releases</summary>
 
-```text
-/Users/kangmingyu/Desktop/dev/MacTempMenuBar/dist/release/*.zip
-/Users/kangmingyu/Desktop/dev/MacTempMenuBar/dist/release/*.dmg
-```
-
-## 배포(릴리스 만들기)
-
-방법 A) 수동 업로드(가장 단순):
-- `bash package.sh` 실행해서 `dist/release/*.zip`, `dist/release/*.dmg` 생성
-- GitHub 웹에서 Releases 페이지에서 새 릴리스 만들고 파일 업로드
-
-방법 B) 태그로 자동 릴리스(GitHub Actions):
-- `v0.3.3` 같은 태그를 push하면 GitHub Actions가 zip/dmg를 만들고 GitHub Release에 자동 업로드합니다.
-- 예시:
-  - `git tag v0.3.4`
-  - `git push origin v0.3.4`
-- GitHub Desktop만으로 태그 작업이 불편하면, 위 2줄만 터미널에서 실행하는 게 제일 빠릅니다.
-
-## Developer ID 서명 + 공증(Notarization)
-
-1) Developer ID 인증서 확인
+This repo can publish a release automatically via GitHub Actions when you push a tag like `v0.3.4`.
 
 ```bash
-security find-identity -v -p codesigning
+git tag v0.3.5
+git push origin v0.3.5
 ```
 
-2) 공증 인증정보(키체인 프로파일) 저장
-
-```bash
-cd /Users/kangmingyu/Desktop/dev/MacTempMenuBar
-NOTARY_PROFILE="mactemp-notary" ./notary-setup.sh
-```
-
-Apple ID 모드:
-
-```bash
-APPLE_ID="you@example.com" \
-APP_SPECIFIC_PASSWORD="xxxx-xxxx-xxxx-xxxx" \
-TEAM_ID="ABCDE12345" \
-NOTARY_PROFILE="mactemp-notary" \
-./notary-setup.sh
-```
-
-API Key 모드:
-
-```bash
-ASC_KEY_PATH="/absolute/path/AuthKey_XXXXXX.p8" \
-ASC_KEY_ID="XXXXXX1234" \
-ASC_ISSUER="00000000-0000-0000-0000-000000000000" \
-NOTARY_PROFILE="mactemp-notary" \
-./notary-setup.sh
-```
-
-3) 서명 + 공증 포함 패키징
-
-```bash
-SIGN_IDENTITY="Developer ID Application: Your Name (TEAMID)" \
-NOTARY_KEYCHAIN_PROFILE="mactemp-notary" \
-bash package.sh
-```
-
-옵션:
-- `NOTARIZE_DMG=1` (기본값): dmg도 추가 공증/스테이플
-- `NOTARY_TIMEOUT=20m` (기본값)
-
-### GitHub Actions로 자동 서명/공증(선택)
-
-이 레포는 `v0.3.4` 같은 태그를 push하면 GitHub Actions가 zip/dmg를 만들어 Releases에 올립니다.  
-기본은 "서명/공증 없이" 빌드합니다(처음 실행 경고가 뜰 수 있음).
-
-서명/공증까지 자동으로 하려면 GitHub Repository Secrets에 아래 값을 넣으면 됩니다(전부 필요):
-- `MACOS_CERT_P12_BASE64`: Developer ID 인증서(.p12) 내용을 base64로 인코딩한 값
-- `MACOS_CERT_P12_PASSWORD`: 위 p12 비밀번호
-- `MACOS_SIGN_IDENTITY`: 코드서명에 쓸 이름(예: `Developer ID Application: Your Name (TEAMID)`)
-- `ASC_KEY_P8_BASE64`: App Store Connect API Key(.p8) 내용을 base64로 인코딩한 값
-- `ASC_KEY_ID`: API Key ID
-- `ASC_ISSUER`: Issuer ID
-
-base64 만들기 예시(macOS):
-
-```bash
-base64 -i /absolute/path/to/cert.p12 | pbcopy
-base64 -i /absolute/path/to/AuthKey_XXXXXX.p8 | pbcopy
-```
-
-## 구현 메모
-
-- 온도 값은 `flt ` 타입의 경우 little-endian float로 해석합니다(예: `TC33`).
+- For code signing + notarization, see `notary-setup.sh` / `package.sh` and the GitHub Secrets mentioned in those scripts.
+</details>

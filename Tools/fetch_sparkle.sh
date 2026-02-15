@@ -12,10 +12,10 @@ mkdir -p "$VENDOR_ROOT"
 
 if [[ ! -d "$FRAMEWORK_DIR" ]]; then
   url="https://github.com/sparkle-project/Sparkle/releases/download/$SPARKLE_VERSION/Sparkle-$SPARKLE_VERSION.tar.xz"
-  echo "[sparkle] Downloading Sparkle $SPARKLE_VERSION..."
+  echo "[sparkle] Downloading Sparkle $SPARKLE_VERSION..." >&2
   curl -fL -o "$ARCHIVE_PATH" "$url"
 
-  echo "[sparkle] Extracting..."
+  echo "[sparkle] Extracting..." >&2
   tar -xJf "$ARCHIVE_PATH" -C "$VENDOR_ROOT"
 fi
 
@@ -25,4 +25,3 @@ if [[ ! -d "$FRAMEWORK_DIR" ]]; then
 fi
 
 echo "$VENDOR_ROOT"
-

@@ -1,6 +1,7 @@
 import AppKit
 import Darwin
 import Foundation
+import Sparkle
 import SwiftUI
 import UserNotifications
 
@@ -646,6 +647,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 struct MacTempMenuBarApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     @StateObject private var monitor = TemperatureMonitor()
+    private let updaterController: SPUStandardUpdaterController
+
+    init() {
+        // Sparkle: checks update feed periodically and prompts the user when an update is available.
+        // This is the typical "notify -> update" flow used by many non-App-Store macOS apps.
+        updaterController = SPUStandardUpdaterController(
+            startingUpdater: true,
+            updaterDelegate: nil,
+            userDriverDelegate: nil
+        )
+    }
 
     var body: some Scene {
         MenuBarExtra {
@@ -694,6 +706,10 @@ struct MacTempMenuBarApp: App {
                 monitor.forceUpdate()
             }
             .keyboardShortcut("r")
+
+            Button("앱 업데이트 확인…") {
+                updaterController.checkForUpdates(nil)
+            }
 
             Button("종료") {
                 NSApplication.shared.terminate(nil)

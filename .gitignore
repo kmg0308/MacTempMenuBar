@@ -11,6 +11,9 @@
 /build/
 /dist/
 
+# Third-party dependencies fetched by scripts
+.vendor/
+
 # Compiled artifacts
 *.o
 *.dSYM/
@@ -18,4 +21,3 @@
 # Local tool binaries (sources live next to them)
 /Tools/smc_dump
 /Tools/smc_read_one
-

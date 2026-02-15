@@ -27,6 +27,7 @@ Built to stay lightweight.
 - 최근 10분 추세(텍스트 그래프)
 - CSV 로그 저장(선택)
 - 로그인 시 자동 실행(선택)
+- 앱 업데이트 확인(메뉴에서 `앱 업데이트 확인…`)
 
 ### 설치(비개발자)
 1. [Releases](https://github.com/kmg0308/MacTempMenuBar/releases/latest)에서 `*.dmg` 또는 `*.zip` 다운로드
@@ -34,7 +35,7 @@ Built to stay lightweight.
 3. 앱 실행하면 메뉴바에 숫자가 뜹니다
 
 ### 업데이트
-- 새 버전을 다시 내려받아 `/Applications/MacTempMenuBar.app`을 교체하면 됩니다.
+- 메뉴에서 `앱 업데이트 확인…`을 누르면 새 버전이 있는지 확인하고, 있으면 업데이트를 안내합니다.
 
 ### 처음 실행이 막힐 때
 - "확인되지 않은 개발자" 경고가 뜨면 Finder에서 앱 우클릭 -> `열기`를 한 번 선택해보세요.
@@ -60,6 +61,7 @@ git push origin v0.3.5
 ```
 
 - 공증까지 자동으로 하고 싶다면 `notary-setup.sh` / `package.sh`와 GitHub Secrets 설정이 필요합니다.
+- 앱 안에서 업데이트 알림/설치를 하려면(Sparkle, 업데이트 확인 기능) `SPARKLE_ED_KEY`(업데이트 서명용 개인키) Secret도 설정해야 합니다.
 </details>
 
 ---
@@ -72,6 +74,7 @@ git push origin v0.3.5
 - 10-minute trend (text sparkline)
 - CSV logging (optional)
 - Launch at login (optional)
+- Update check (use the `앱 업데이트 확인…` menu item)
 
 ### Install (non-developers)
 1. Download `*.dmg` or `*.zip` from [Releases](https://github.com/kmg0308/MacTempMenuBar/releases/latest)
@@ -79,7 +82,7 @@ git push origin v0.3.5
 3. Run it and you'll see the number in the menu bar
 
 ### Update
-- Download the new version and replace `/Applications/MacTempMenuBar.app`.
+- Use the `앱 업데이트 확인…` menu item to check for updates and install when available.
 
 ### If macOS blocks the first launch
 - In Finder, right click the app -> `Open` (usually fixes the Gatekeeper prompt).
@@ -105,4 +108,5 @@ git push origin v0.3.5
 ```
 
 - For code signing + notarization, see `notary-setup.sh` / `package.sh` and the GitHub Secrets mentioned in those scripts.
+- For in-app update prompts (Sparkle), set the `SPARKLE_ED_KEY` (private signing key) GitHub Actions secret too.
 </details>

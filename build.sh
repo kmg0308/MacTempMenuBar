@@ -20,8 +20,13 @@ function require_command() {
 
 require_command xcrun
 require_command lipo
+require_command curl
+require_command ditto
 
 SDKROOT="$(xcrun --sdk macosx --show-sdk-path)"
+
+# Sparkle (auto update) framework.
+SPARKLE_ROOT="$("$ROOT_DIR/Tools/fetch_sparkle.sh")"
 
 rm -rf "$BUILD_DIR"
 mkdir -p "$BUILD_DIR"
@@ -76,6 +81,7 @@ swiftc \
   -O \
   -sdk "$SDKROOT" \
   -target "$TARGET_TRIPLE_ARM64" \
+  -F "$SPARKLE_ROOT" \
   -import-objc-header "$ROOT_DIR/App/BridgingHeader.h" \
   "$ROOT_DIR/App/AppMain.swift" \
   "$SMC_OBJ_ARM64" \
@@ -83,6 +89,8 @@ swiftc \
   -framework Foundation \
   -framework IOKit \
   -framework CoreFoundation \
+  -framework Sparkle \
+  -Xlinker -rpath -Xlinker @loader_path/../Frameworks \
   -o "$BIN_ARM64"
 
 swiftc \
@@ -90,6 +98,7 @@ swiftc \
   -O \
   -sdk "$SDKROOT" \
   -target "$TARGET_TRIPLE_X86_64" \
+  -F "$SPARKLE_ROOT" \
   -import-objc-header "$ROOT_DIR/App/BridgingHeader.h" \
   "$ROOT_DIR/App/AppMain.swift" \
   "$SMC_OBJ_X86_64" \
@@ -97,6 +106,8 @@ swiftc \
   -framework Foundation \
   -framework IOKit \
   -framework CoreFoundation \
+  -framework Sparkle \
+  -Xlinker -rpath -Xlinker @loader_path/../Frameworks \
   -o "$BIN_X86_64"
 
 # Combine into a universal binary.
@@ -105,16 +116,35 @@ lipo -create -output "$BUILD_DIR/${APP_NAME}" "$BIN_ARM64" "$BIN_X86_64"
 # Build the .app bundle.
 mkdir -p "$APP_DIR/Contents/MacOS"
 mkdir -p "$APP_DIR/Contents/Resources"
+mkdir -p "$APP_DIR/Contents/Frameworks"
 
 cp "$ROOT_DIR/App/Info.plist" "$APP_DIR/Contents/Info.plist"
 cp "$BUILD_DIR/${APP_NAME}" "$APP_DIR/Contents/MacOS/${APP_NAME}"
 cp "$ICON_ICNS" "$APP_DIR/Contents/Resources/AppIcon.icns"
 
+# Embed Sparkle.framework (includes its helper app + XPC services).
+ditto "$SPARKLE_ROOT/Sparkle.framework" "$APP_DIR/Contents/Frameworks/Sparkle.framework"
+
 # Sign the app bundle.
 # - If SIGN_IDENTITY is set, use Developer ID + Hardened Runtime (required for notarization).
 # - Otherwise, fall back to ad-hoc sign for local usage.
 if command -v codesign >/dev/null 2>&1; then
+  FRAMEWORK_PATH="$APP_DIR/Contents/Frameworks/Sparkle.framework"
+
   if [[ -n "$SIGN_IDENTITY" ]]; then
+    # Sign nested code inside the framework first.
+    if [[ -d "$FRAMEWORK_PATH/Versions/B/XPCServices" ]]; then
+      for xpc in "$FRAMEWORK_PATH/Versions/B/XPCServices/"*.xpc; do
+        if [[ -d "$xpc" ]]; then
+          codesign --force --sign "$SIGN_IDENTITY" --timestamp --options runtime "$xpc"
+        fi
+      done
+    fi
+    if [[ -d "$FRAMEWORK_PATH/Versions/B/Updater.app" ]]; then
+      codesign --force --sign "$SIGN_IDENTITY" --timestamp --options runtime "$FRAMEWORK_PATH/Versions/B/Updater.app"
+    fi
+    codesign --force --sign "$SIGN_IDENTITY" --timestamp --options runtime "$FRAMEWORK_PATH"
+
     codesign \
       --force \
       --sign "$SIGN_IDENTITY" \
@@ -123,6 +153,18 @@ if command -v codesign >/dev/null 2>&1; then
       "$APP_DIR"
     codesign --verify --deep --strict --verbose=2 "$APP_DIR"
   else
+    # Ad-hoc sign nested framework code to avoid "not signed at all" issues in local builds.
+    if [[ -d "$FRAMEWORK_PATH/Versions/B/XPCServices" ]]; then
+      for xpc in "$FRAMEWORK_PATH/Versions/B/XPCServices/"*.xpc; do
+        if [[ -d "$xpc" ]]; then
+          codesign --force --sign - "$xpc" >/dev/null 2>&1 || true
+        fi
+      done
+    fi
+    if [[ -d "$FRAMEWORK_PATH/Versions/B/Updater.app" ]]; then
+      codesign --force --sign - "$FRAMEWORK_PATH/Versions/B/Updater.app" >/dev/null 2>&1 || true
+    fi
+    codesign --force --sign - "$FRAMEWORK_PATH" >/dev/null 2>&1 || true
     codesign --force --sign - "$APP_DIR" >/dev/null 2>&1 || true
   fi
 fi

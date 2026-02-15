@@ -82,6 +82,14 @@ jobs:
           cp "$dmg" "dist/release/MacTempMenuBar.dmg"
           cp "$zip" "dist/release/MacTempMenuBar.zip"
 
+      - name: Generate Sparkle Appcast (Optional)
+        env:
+          SPARKLE_ED_KEY: ${{ secrets.SPARKLE_ED_KEY }}
+        run: |
+          set -euo pipefail
+          chmod +x Tools/fetch_sparkle.sh Tools/generate_appcast.sh
+          bash Tools/generate_appcast.sh "$GITHUB_REF_NAME" dist/release
+
       - name: Upload Assets To GitHub Release
         uses: softprops/action-gh-release@v2
         with:
@@ -89,6 +97,17 @@ jobs:
           files: |
             dist/release/*.zip
             dist/release/*.dmg
+
+      - name: Upload Sparkle Appcast (Optional)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          if [[ -f dist/release/appcast.xml ]]; then
+            gh release upload "$GITHUB_REF_NAME" dist/release/appcast.xml --clobber
+          else
+            echo "Sparkle appcast: skipped (not generated)"
+          fi
 
       # Keep /releases/latest reserved for the rolling main build (tag: nightly).
       - name: Ensure Versioned Release Is Not "Latest"

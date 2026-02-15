@@ -12,7 +12,35 @@ enum RefreshInterval: Int, CaseIterable {
     var title: String { "\(rawValue)초" }
 
     static func sanitized(_ value: Int) -> RefreshInterval {
-        return Self(rawValue: value) ?? .oneSecond
+        // Default to a low-frequency refresh to minimize CPU/battery impact on first launch.
+        return Self(rawValue: value) ?? .fiveSeconds
+    }
+}
+
+private enum TempStatusLevel: Int {
+    case normal
+    case warning
+    case critical
+
+    static func from(tempC: Double, warning: Int, critical: Int) -> TempStatusLevel {
+        if tempC >= Double(critical) {
+            return .critical
+        }
+        if tempC >= Double(warning) {
+            return .warning
+        }
+        return .normal
+    }
+
+    var color: Color {
+        switch self {
+        case .critical:
+            return .red
+        case .warning:
+            return .orange
+        case .normal:
+            return .primary
+        }
     }
 }
 
@@ -250,11 +278,12 @@ final class TemperatureMonitor: ObservableObject {
     private static let rapidRiseWindowSec: TimeInterval = 10
     private static let rapidRiseDeltaC: Double = 8.0
     private static let rapidRiseCooldownSec: TimeInterval = 120
+    private static let menuDetailsMinUpdateIntervalSec: TimeInterval = 5
 
     @Published private(set) var statusText: String = "--"
     @Published private(set) var temperatureText: String = "N/A"
-    @Published private(set) var statusColor: Color = .primary
-    @Published private(set) var refreshInterval: RefreshInterval = .oneSecond
+    @Published private var statusLevel: TempStatusLevel = .normal
+    @Published private(set) var refreshInterval: RefreshInterval = .fiveSeconds
     @Published private(set) var launchAtLoginEnabled: Bool = false
     @Published private(set) var csvLoggingEnabled: Bool = false
     @Published private(set) var rapidRiseAlertsEnabled: Bool = true
@@ -265,10 +294,12 @@ final class TemperatureMonitor: ObservableObject {
 
     private let workQueue = DispatchQueue(label: "com.kangmingyu.mactempmenubar.smc", qos: .utility)
     private var timer: DispatchSourceTimer?
-    private var isOurMenuOpenWorker = false
+    private var menuTrackingCountWorker = 0
     private var menuObservers: [NSObjectProtocol] = []
+    private var lastMenuDetailsPublishAtWorker: Date = .distantPast
+    private var lastTempCMain: Double?
 
-    private var refreshIntervalWorker: RefreshInterval = .oneSecond
+    private var refreshIntervalWorker: RefreshInterval = .fiveSeconds
     private var csvLoggingEnabledWorker = false
     private var rapidRiseAlertsEnabledWorker = true
     private var warningThresholdWorker = defaultWarningThreshold
@@ -335,9 +366,15 @@ final class TemperatureMonitor: ObservableObject {
             object: nil,
             queue: .main
         ) { [weak self] note in
-            guard let self, Self.isOurMenu(note.object as? NSMenu) else { return }
+            guard let self, Self.isOurMenuOrSubmenu(note.object as? NSMenu) else { return }
             self.workQueue.async {
-                self.isOurMenuOpenWorker = true
+                let wasClosed = (self.menuTrackingCountWorker == 0)
+                self.menuTrackingCountWorker += 1
+                if wasClosed {
+                    // Make the dropdown text fresh once, then freeze while any menu (including submenus) is open
+                    // to prevent SwiftUI re-render from closing the menu during tracking.
+                    self.readAndPublish(forceMenuDetails: true)
+                }
             }
         }
 
@@ -346,11 +383,15 @@ final class TemperatureMonitor: ObservableObject {
             object: nil,
             queue: .main
         ) { [weak self] note in
-            guard let self, Self.isOurMenu(note.object as? NSMenu) else { return }
+            guard let self, Self.isOurMenuOrSubmenu(note.object as? NSMenu) else { return }
             self.workQueue.async {
-                self.isOurMenuOpenWorker = false
-                // Reflect latest menu text once after close.
-                self.readAndPublish()
+                if self.menuTrackingCountWorker > 0 {
+                    self.menuTrackingCountWorker -= 1
+                }
+                if self.menuTrackingCountWorker == 0 {
+                    // Reflect latest menu text once after close.
+                    self.readAndPublish(forceMenuDetails: true)
+                }
             }
         }
 
@@ -361,6 +402,15 @@ final class TemperatureMonitor: ObservableObject {
         guard let menu else { return false }
         let titles = Set(menu.items.map(\.title))
         return titles.contains("지금 업데이트") && titles.contains("종료")
+    }
+
+    private static func isOurMenuOrSubmenu(_ menu: NSMenu?) -> Bool {
+        var cur = menu
+        while let m = cur {
+            if isOurMenu(m) { return true }
+            cur = m.supermenu
+        }
+        return false
     }
 
     func start() {
@@ -382,7 +432,7 @@ final class TemperatureMonitor: ObservableObject {
         )
         t.setEventHandler { [weak self] in
             guard let self else { return }
-            self.readAndPublish()
+            self.readAndPublish(forceMenuDetails: false)
         }
         timer = t
         t.resume()
@@ -395,7 +445,7 @@ final class TemperatureMonitor: ObservableObject {
 
     func forceUpdate() {
         workQueue.async { [weak self] in
-            self?.readAndPublish()
+            self?.readAndPublish(forceMenuDetails: true)
         }
     }
 
@@ -490,8 +540,11 @@ final class TemperatureMonitor: ObservableObject {
         warningThreshold = newWarning
         criticalThreshold = newCritical
 
-        if let currentTemp = Double(temperatureText.replacingOccurrences(of: "°C", with: "")) {
-            statusColor = Self.statusColor(for: currentTemp, warning: newWarning, critical: newCritical)
+        if let tempC = lastTempCMain {
+            let level = TempStatusLevel.from(tempC: tempC, warning: newWarning, critical: newCritical)
+            if statusLevel != level {
+                statusLevel = level
+            }
         }
 
         workQueue.async { [weak self] in
@@ -513,6 +566,10 @@ final class TemperatureMonitor: ObservableObject {
     }
 
     private func readAndPublish() {
+        readAndPublish(forceMenuDetails: false)
+    }
+
+    private func readAndPublish(forceMenuDetails: Bool) {
         autoreleasepool {
             var tempC: Double = .nan
             let rc: Int32 = smc_temp_read_max(&tempC, nil)
@@ -520,9 +577,12 @@ final class TemperatureMonitor: ObservableObject {
 
             guard rc == 0, tempC.isFinite else {
                 DispatchQueue.main.async {
-                    self.statusText = "--"
-                    self.temperatureText = "N/A"
-                    self.statusColor = .primary
+                    self.lastTempCMain = nil
+                    if self.statusText != "--" { self.statusText = "--" }
+                    if self.temperatureText != "N/A" { self.temperatureText = "N/A" }
+                    if self.sparklineText != "N/A" { self.sparklineText = "N/A" }
+                    if self.sparklineRangeText != "--" { self.sparklineRangeText = "--" }
+                    if self.statusLevel != .normal { self.statusLevel = .normal }
                 }
                 return
             }
@@ -539,26 +599,50 @@ final class TemperatureMonitor: ObservableObject {
             }
 
             let rounded = Int(tempC.rounded())
-            let precise = String(format: "%.1f°C", tempC)
-            let color = Self.statusColor(for: tempC, warning: warningThresholdWorker, critical: criticalThresholdWorker)
-            let (sparkline, rangeText) = Self.makeSparkline(from: historyWorker)
+            let level = TempStatusLevel.from(
+                tempC: tempC,
+                warning: warningThresholdWorker,
+                critical: criticalThresholdWorker
+            )
 
-            if isOurMenuOpenWorker {
-                // Keep menubar number/color fresh, but freeze dropdown text while menu is open
-                // to avoid hover target jitter from per-second layout changes.
+            let isMenuTracking = (menuTrackingCountWorker > 0)
+            let shouldPublishMenuDetails =
+                forceMenuDetails ||
+                (!isMenuTracking && sampledAt.timeIntervalSince(lastMenuDetailsPublishAtWorker) >= Self.menuDetailsMinUpdateIntervalSec)
+
+            if shouldPublishMenuDetails {
+                lastMenuDetailsPublishAtWorker = sampledAt
+
+                let precise = String(format: "%.1f°C", tempC)
+                let (sparkline, rangeText) = Self.makeSparkline(from: historyWorker)
+
                 DispatchQueue.main.async {
-                    self.statusText = "\(rounded)"
-                    self.statusColor = color
+                    self.lastTempCMain = tempC
+
+                    let statusText = "\(rounded)"
+                    if self.statusText != statusText { self.statusText = statusText }
+                    if self.temperatureText != precise { self.temperatureText = precise }
+                    if self.sparklineText != sparkline { self.sparklineText = sparkline }
+                    if self.sparklineRangeText != rangeText { self.sparklineRangeText = rangeText }
+                    if self.statusLevel != level { self.statusLevel = level }
                 }
                 return
             }
 
+            // While a menu/submenu is tracking, avoid publishing *any* SwiftUI state changes.
+            // Published updates can cause SwiftUI to rebuild the MenuBarExtra view tree and close the open menu.
+            if isMenuTracking {
+                return
+            }
+
+            // Keep menubar number/color fresh, but freeze dropdown text while the menu is open (or between periodic updates)
+            // to avoid hover target jitter from frequent layout changes.
             DispatchQueue.main.async {
-                self.statusText = "\(rounded)"
-                self.temperatureText = precise
-                self.statusColor = color
-                self.sparklineText = sparkline
-                self.sparklineRangeText = rangeText
+                self.lastTempCMain = tempC
+
+                let statusText = "\(rounded)"
+                if self.statusText != statusText { self.statusText = statusText }
+                if self.statusLevel != level { self.statusLevel = level }
             }
         }
     }
@@ -568,14 +652,20 @@ final class TemperatureMonitor: ObservableObject {
     }
 
     private func maybeSendRapidRiseAlert(currentTemp: Double, now: Date) {
-        let recent = historyWorker.filter {
-            let dt = now.timeIntervalSince($0.date)
-            return dt > 0 && dt <= Self.rapidRiseWindowSec
+        var minRecent: Double? = nil
+        for sample in historyWorker.reversed() {
+            let dt = now.timeIntervalSince(sample.date)
+            if dt <= 0 { continue } // skip current sample (dt == 0)
+            if dt > Self.rapidRiseWindowSec { break }
+
+            if let current = minRecent {
+                if sample.tempC < current { minRecent = sample.tempC }
+            } else {
+                minRecent = sample.tempC
+            }
         }
 
-        guard let minRecent = recent.map(\.tempC).min() else {
-            return
-        }
+        guard let minRecent else { return }
 
         let delta = currentTemp - minRecent
         guard delta >= Self.rapidRiseDeltaC else {
@@ -644,15 +734,7 @@ final class TemperatureMonitor: ObservableObject {
         return result
     }
 
-    private static func statusColor(for tempC: Double, warning: Int, critical: Int) -> Color {
-        if tempC >= Double(critical) {
-            return .red
-        }
-        if tempC >= Double(warning) {
-            return .orange
-        }
-        return .primary
-    }
+    var statusColor: Color { statusLevel.color }
 }
 
 final class AppDelegate: NSObject, NSApplicationDelegate {

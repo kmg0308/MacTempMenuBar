@@ -8,6 +8,10 @@ A tiny macOS menu bar app that shows your current temperature as a **single numb
 [![Download DMG](https://img.shields.io/badge/Download-DMG-0A84FF?style=for-the-badge&logo=apple)](https://github.com/kmg0308/MacTempMenuBar/releases/latest/download/MacTempMenuBar.dmg)
 [![Download ZIP](https://img.shields.io/badge/Download-ZIP-0A84FF?style=for-the-badge&logo=apple)](https://github.com/kmg0308/MacTempMenuBar/releases/latest/download/MacTempMenuBar.zip)
 
+- main 자동 빌드(커밋이 main에 들어가면 자동으로 갱신됨):
+  - [![Download DMG (main)](https://img.shields.io/badge/Download-main%20DMG-34C759?style=for-the-badge&logo=apple)](https://github.com/kmg0308/MacTempMenuBar/releases/download/nightly/MacTempMenuBar.dmg)
+  - [![Download ZIP (main)](https://img.shields.io/badge/Download-main%20ZIP-34C759?style=for-the-badge&logo=apple)](https://github.com/kmg0308/MacTempMenuBar/releases/download/nightly/MacTempMenuBar.zip)
+
 - More downloads: [Releases (latest)](https://github.com/kmg0308/MacTempMenuBar/releases/latest)
 - Requirements: macOS 13+ (MenuBarExtra). Tested on Apple Silicon (Intel not tested).
 

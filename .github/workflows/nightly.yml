@@ -1,0 +1,107 @@
+name: Nightly (main)
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+concurrency:
+  group: nightly-main
+  cancel-in-progress: true
+
+jobs:
+  build-and-release:
+    runs-on: macos-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Signing + Notarization (Optional)
+        if: ${{ secrets.MACOS_CERT_P12_BASE64 != '' && secrets.MACOS_CERT_P12_PASSWORD != '' && secrets.MACOS_SIGN_IDENTITY != '' && secrets.ASC_KEY_P8_BASE64 != '' && secrets.ASC_KEY_ID != '' && secrets.ASC_ISSUER != '' }}
+        env:
+          MACOS_CERT_P12_BASE64: ${{ secrets.MACOS_CERT_P12_BASE64 }}
+          MACOS_CERT_P12_PASSWORD: ${{ secrets.MACOS_CERT_P12_PASSWORD }}
+          MACOS_SIGN_IDENTITY: ${{ secrets.MACOS_SIGN_IDENTITY }}
+          ASC_KEY_P8_BASE64: ${{ secrets.ASC_KEY_P8_BASE64 }}
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER: ${{ secrets.ASC_ISSUER }}
+        run: |
+          set -euo pipefail
+
+          CERT_P12_PATH="$RUNNER_TEMP/cert.p12"
+          AUTH_KEY_PATH="$RUNNER_TEMP/AuthKey.p8"
+          KEYCHAIN_PATH="$RUNNER_TEMP/build.keychain-db"
+          KEYCHAIN_PASSWORD="$(uuidgen)"
+          NOTARY_PROFILE="mactemp-notary"
+
+          echo "$MACOS_CERT_P12_BASE64" | base64 --decode > "$CERT_P12_PATH"
+          echo "$ASC_KEY_P8_BASE64" | base64 --decode > "$AUTH_KEY_PATH"
+
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security list-keychains -d user -s "$KEYCHAIN_PATH"
+          security import "$CERT_P12_PATH" -k "$KEYCHAIN_PATH" -P "$MACOS_CERT_P12_PASSWORD" -T /usr/bin/codesign -T /usr/bin/security
+          security set-key-partition-list -S apple-tool:,apple: -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+
+          xcrun notarytool store-credentials \
+            "$NOTARY_PROFILE" \
+            --key "$AUTH_KEY_PATH" \
+            --key-id "$ASC_KEY_ID" \
+            --issuer "$ASC_ISSUER" \
+            --validate
+
+          echo "SIGN_IDENTITY=$MACOS_SIGN_IDENTITY" >> "$GITHUB_ENV"
+          echo "NOTARY_KEYCHAIN_PROFILE=$NOTARY_PROFILE" >> "$GITHUB_ENV"
+
+      - name: Stamp CI Build Number (CFBundleVersion)
+        run: |
+          set -euo pipefail
+          /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $GITHUB_RUN_NUMBER" App/Info.plist \
+            || /usr/libexec/PlistBuddy -c "Add :CFBundleVersion string $GITHUB_RUN_NUMBER" App/Info.plist
+
+      - name: Build + Package (zip + dmg)
+        run: |
+          chmod +x build.sh package.sh
+          bash package.sh
+
+      - name: Create Stable Filenames
+        run: |
+          set -euo pipefail
+          dmg="$(ls -1 dist/release/*.dmg | head -n 1)"
+          zip="$(ls -1 dist/release/*.zip | head -n 1)"
+          cp "$dmg" "dist/release/MacTempMenuBar.dmg"
+          cp "$zip" "dist/release/MacTempMenuBar.zip"
+
+      - name: Update 'nightly' tag
+        run: |
+          set -euo pipefail
+          git tag -f nightly
+          git push origin -f nightly
+
+      - name: Create/Update GitHub Release (nightly) + Upload Assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+
+          title="Nightly (main)"
+          notes="자동 빌드 (main)\n\n- Commit: ${GITHUB_SHA}\n- Run: ${GITHUB_RUN_ID}"
+
+          if gh release view nightly >/dev/null 2>&1; then
+            gh release edit nightly --prerelease --title "$title" --notes "$notes"
+          else
+            gh release create nightly --prerelease --title "$title" --notes "$notes"
+          fi
+
+          gh release upload nightly \
+            dist/release/MacTempMenuBar.dmg \
+            dist/release/MacTempMenuBar.zip \
+            --clobber
+

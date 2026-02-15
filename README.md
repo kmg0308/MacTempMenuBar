@@ -5,7 +5,10 @@
 메뉴바에 현재 온도를 `77` 같은 **숫자 하나**로 보여주는 작은 macOS 앱입니다.  
 A tiny macOS menu bar app that shows your current temperature as a **single number**.
 
-- Download: [Releases (latest)](https://github.com/kmg0308/MacTempMenuBar/releases/latest)
+[![Download DMG](https://img.shields.io/badge/Download-DMG-0A84FF?style=for-the-badge&logo=apple)](https://github.com/kmg0308/MacTempMenuBar/releases/latest/download/MacTempMenuBar.dmg)
+[![Download ZIP](https://img.shields.io/badge/Download-ZIP-0A84FF?style=for-the-badge&logo=apple)](https://github.com/kmg0308/MacTempMenuBar/releases/latest/download/MacTempMenuBar.zip)
+
+- More downloads: [Releases (latest)](https://github.com/kmg0308/MacTempMenuBar/releases/latest)
 - Requirements: macOS 13+ (MenuBarExtra). Tested on Apple Silicon (Intel not tested).
 
 ---

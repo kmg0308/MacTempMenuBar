@@ -59,6 +59,14 @@ jobs:
           chmod +x build.sh package.sh
           bash package.sh
 
+      - name: Create Stable Filenames
+        run: |
+          set -euo pipefail
+          dmg="$(ls -1 dist/release/*.dmg | head -n 1)"
+          zip="$(ls -1 dist/release/*.zip | head -n 1)"
+          cp "$dmg" "dist/release/MacTempMenuBar.dmg"
+          cp "$zip" "dist/release/MacTempMenuBar.zip"
+
       - name: Upload Assets To GitHub Release
         uses: softprops/action-gh-release@v2
         with:

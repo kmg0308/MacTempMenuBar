@@ -91,17 +91,23 @@ jobs:
         run: |
           set -euo pipefail
 
-          title="Nightly (main)"
-          notes="자동 빌드 (main)\n\n- Commit: ${GITHUB_SHA}\n- Run: ${GITHUB_RUN_ID}"
+          title="Latest (main)"
+          notes=$'자동 빌드 (main)\n\n- Commit: '"${GITHUB_SHA}"$'\n- Run: '"${GITHUB_RUN_ID}"
 
           if gh release view nightly >/dev/null 2>&1; then
-            gh release edit nightly --prerelease --title "$title" --notes "$notes"
+            gh release edit nightly --title "$title" --notes "$notes"
           else
-            gh release create nightly --prerelease --title "$title" --notes "$notes"
+            gh release create nightly --title "$title" --notes "$notes"
           fi
+
+          # Make sure this rolling release is what /releases/latest points to.
+          id="$(gh api "repos/${GITHUB_REPOSITORY}/releases/tags/nightly" --jq .id)"
+          gh api -X PATCH "repos/${GITHUB_REPOSITORY}/releases/${id}" \
+            -f draft=false \
+            -f prerelease=false \
+            -f make_latest=true
 
           gh release upload nightly \
             dist/release/MacTempMenuBar.dmg \
             dist/release/MacTempMenuBar.zip \
             --clobber
-

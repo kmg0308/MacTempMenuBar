@@ -74,3 +74,13 @@ jobs:
           files: |
             dist/release/*.zip
             dist/release/*.dmg
+
+      # Keep /releases/latest reserved for the rolling main build (tag: nightly).
+      - name: Ensure Versioned Release Is Not "Latest"
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          tag="${GITHUB_REF_NAME}"
+          id="$(gh api "repos/${GITHUB_REPOSITORY}/releases/tags/${tag}" --jq .id)"
+          gh api -X PATCH "repos/${GITHUB_REPOSITORY}/releases/${id}" -f make_latest=false

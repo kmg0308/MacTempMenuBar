@@ -5,12 +5,14 @@
 메뉴바에 현재 온도를 `77` 같은 **숫자 하나**로 보여주는 작은 macOS 앱입니다.  
 A tiny macOS menu bar app that shows your current temperature as a **single number**.
 
+가볍게 동작하도록 만들었습니다.
+Built to stay lightweight.
+
+- 용량: 앱 번들 약 **1.5MB** (빌드/버전에 따라 조금 달라질 수 있음)
+- 기본 갱신: **5초**(1/2/5초로 변경 가능)
+
 [![Download DMG](https://img.shields.io/badge/Download-DMG-0A84FF?style=for-the-badge&logo=apple)](https://github.com/kmg0308/MacTempMenuBar/releases/latest/download/MacTempMenuBar.dmg)
 [![Download ZIP](https://img.shields.io/badge/Download-ZIP-0A84FF?style=for-the-badge&logo=apple)](https://github.com/kmg0308/MacTempMenuBar/releases/latest/download/MacTempMenuBar.zip)
-
-- main 자동 빌드(커밋이 main에 들어가면 자동으로 갱신됨):
-  - [![Download DMG (main)](https://img.shields.io/badge/Download-main%20DMG-34C759?style=for-the-badge&logo=apple)](https://github.com/kmg0308/MacTempMenuBar/releases/download/nightly/MacTempMenuBar.dmg)
-  - [![Download ZIP (main)](https://img.shields.io/badge/Download-main%20ZIP-34C759?style=for-the-badge&logo=apple)](https://github.com/kmg0308/MacTempMenuBar/releases/download/nightly/MacTempMenuBar.zip)
 
 - More downloads: [Releases (latest)](https://github.com/kmg0308/MacTempMenuBar/releases/latest)
 - Requirements: macOS 13+ (MenuBarExtra). Tested on Apple Silicon (Intel not tested).

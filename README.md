@@ -140,6 +140,26 @@ bash package.sh
 - `NOTARIZE_DMG=1` (기본값): dmg도 추가 공증/스테이플
 - `NOTARY_TIMEOUT=20m` (기본값)
 
+### GitHub Actions로 자동 서명/공증(선택)
+
+이 레포는 `v0.3.4` 같은 태그를 push하면 GitHub Actions가 zip/dmg를 만들어 Releases에 올립니다.  
+기본은 "서명/공증 없이" 빌드합니다(처음 실행 경고가 뜰 수 있음).
+
+서명/공증까지 자동으로 하려면 GitHub Repository Secrets에 아래 값을 넣으면 됩니다(전부 필요):
+- `MACOS_CERT_P12_BASE64`: Developer ID 인증서(.p12) 내용을 base64로 인코딩한 값
+- `MACOS_CERT_P12_PASSWORD`: 위 p12 비밀번호
+- `MACOS_SIGN_IDENTITY`: 코드서명에 쓸 이름(예: `Developer ID Application: Your Name (TEAMID)`)
+- `ASC_KEY_P8_BASE64`: App Store Connect API Key(.p8) 내용을 base64로 인코딩한 값
+- `ASC_KEY_ID`: API Key ID
+- `ASC_ISSUER`: Issuer ID
+
+base64 만들기 예시(macOS):
+
+```bash
+base64 -i /absolute/path/to/cert.p12 | pbcopy
+base64 -i /absolute/path/to/AuthKey_XXXXXX.p8 | pbcopy
+```
+
 ## 구현 메모
 
 - 온도 값은 `flt ` 타입의 경우 little-endian float로 해석합니다(예: `TC33`).

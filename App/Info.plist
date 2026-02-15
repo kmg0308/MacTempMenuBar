@@ -28,6 +28,10 @@
   <true/>
   <key>SUFeedURL</key>
   <string>https://github.com/kmg0308/MacTempMenuBar/releases/download/nightly/appcast.xml</string>
+  <key>SUEnableAutomaticChecks</key>
+  <true/>
+  <key>SUScheduledCheckInterval</key>
+  <integer>21600</integer>
   <key>SUPublicEDKey</key>
   <string>ScoMiwu5pI85HPV0ICV71/Y2ypj8Rq5PaccOkQSr8LI=</string>
 </dict>

@@ -351,7 +351,7 @@ final class TemperatureMonitor: ObservableObject {
     private static func isOurMenu(_ menu: NSMenu?) -> Bool {
         guard let menu else { return false }
         let titles = Set(menu.items.map(\.title))
-        return titles.contains("지금 업데이트") && titles.contains("종료")
+        return titles.contains("온도 새로고침") && titles.contains("종료")
     }
 
     private static func isOurMenuOrSubmenu(_ menu: NSMenu?) -> Bool {
@@ -702,7 +702,7 @@ struct MacTempMenuBarApp: App {
 
             Divider()
 
-            Button("지금 업데이트") {
+            Button("온도 새로고침") {
                 monitor.forceUpdate()
             }
             .keyboardShortcut("r")
@@ -710,6 +710,7 @@ struct MacTempMenuBarApp: App {
             Button("앱 업데이트 확인…") {
                 updaterController.checkForUpdates(nil)
             }
+            .keyboardShortcut("u")
 
             Button("종료") {
                 NSApplication.shared.terminate(nil)

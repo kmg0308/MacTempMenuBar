@@ -23,7 +23,6 @@ Built to stay lightweight.
 
 ### 기능
 - 메뉴바 숫자 표시(가장 뜨거운 센서를 자동으로 선택)
-- 임계치에 따라 색상 변경(기본 85도/95도, 메뉴에서 조절)
 - 급상승 알림(10초 내 +8도, 선택)
 - 최근 10분 추세(텍스트 그래프)
 - CSV 로그 저장(선택)
@@ -69,7 +68,6 @@ git push origin v0.3.5
 
 ### Features
 - Shows a single number in the menu bar (auto-picks the hottest sensor)
-- Color changes based on thresholds (defaults 85C/95C, adjustable in the menu)
 - Rapid rise alert (+8C within 10 seconds, optional)
 - 10-minute trend (text sparkline)
 - CSV logging (optional)

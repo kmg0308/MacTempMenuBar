@@ -17,33 +17,6 @@ enum RefreshInterval: Int, CaseIterable {
     }
 }
 
-private enum TempStatusLevel: Int {
-    case normal
-    case warning
-    case critical
-
-    static func from(tempC: Double, warning: Int, critical: Int) -> TempStatusLevel {
-        if tempC >= Double(critical) {
-            return .critical
-        }
-        if tempC >= Double(warning) {
-            return .warning
-        }
-        return .normal
-    }
-
-    var color: Color {
-        switch self {
-        case .critical:
-            return .red
-        case .warning:
-            return .orange
-        case .normal:
-            return .primary
-        }
-    }
-}
-
 private struct TemperatureSample {
     let date: Date
     let tempC: Double
@@ -263,16 +236,8 @@ final class TemperatureMonitor: ObservableObject {
     private enum DefaultsKey {
         static let refreshInterval = "refreshIntervalSeconds"
         static let csvLoggingEnabled = "csvLoggingEnabled"
-        static let warningThreshold = "warningThresholdC"
-        static let criticalThreshold = "criticalThresholdC"
         static let rapidRiseAlertsEnabled = "rapidRiseAlertsEnabled"
     }
-
-    private static let defaultWarningThreshold = 85
-    private static let defaultCriticalThreshold = 95
-    private static let minWarningThreshold = 60
-    private static let maxCriticalThreshold = 125
-    private static let minThresholdGap = 3
 
     private static let historyWindowSec: TimeInterval = 600
     private static let rapidRiseWindowSec: TimeInterval = 10
@@ -282,13 +247,10 @@ final class TemperatureMonitor: ObservableObject {
 
     @Published private(set) var statusText: String = "--"
     @Published private(set) var temperatureText: String = "N/A"
-    @Published private var statusLevel: TempStatusLevel = .normal
     @Published private(set) var refreshInterval: RefreshInterval = .fiveSeconds
     @Published private(set) var launchAtLoginEnabled: Bool = false
     @Published private(set) var csvLoggingEnabled: Bool = false
     @Published private(set) var rapidRiseAlertsEnabled: Bool = true
-    @Published private(set) var warningThreshold: Int = defaultWarningThreshold
-    @Published private(set) var criticalThreshold: Int = defaultCriticalThreshold
     @Published private(set) var sparklineText: String = "수집 중"
     @Published private(set) var sparklineRangeText: String = "--"
 
@@ -302,8 +264,6 @@ final class TemperatureMonitor: ObservableObject {
     private var refreshIntervalWorker: RefreshInterval = .fiveSeconds
     private var csvLoggingEnabledWorker = false
     private var rapidRiseAlertsEnabledWorker = true
-    private var warningThresholdWorker = defaultWarningThreshold
-    private var criticalThresholdWorker = defaultCriticalThreshold
     private var historyWorker: [TemperatureSample] = []
     private var lastRapidAlertAt: Date = .distantPast
 
@@ -317,10 +277,6 @@ final class TemperatureMonitor: ObservableObject {
         let logging = defaults.object(forKey: DefaultsKey.csvLoggingEnabled) as? Bool ?? false
         let alerts = defaults.object(forKey: DefaultsKey.rapidRiseAlertsEnabled) as? Bool ?? true
 
-        let warningStored = defaults.object(forKey: DefaultsKey.warningThreshold) as? Int ?? Self.defaultWarningThreshold
-        let criticalStored = defaults.object(forKey: DefaultsKey.criticalThreshold) as? Int ?? Self.defaultCriticalThreshold
-        let (warning, critical) = Self.sanitizeThresholds(warning: warningStored, critical: criticalStored)
-
         refreshInterval = interval
         refreshIntervalWorker = interval
 
@@ -330,18 +286,11 @@ final class TemperatureMonitor: ObservableObject {
         rapidRiseAlertsEnabled = alerts
         rapidRiseAlertsEnabledWorker = alerts
 
-        warningThreshold = warning
-        warningThresholdWorker = warning
-        criticalThreshold = critical
-        criticalThresholdWorker = critical
-
         launchAtLoginEnabled = loginItemManager.isEnabled()
 
         defaults.set(interval.rawValue, forKey: DefaultsKey.refreshInterval)
         defaults.set(logging, forKey: DefaultsKey.csvLoggingEnabled)
         defaults.set(alerts, forKey: DefaultsKey.rapidRiseAlertsEnabled)
-        defaults.set(warning, forKey: DefaultsKey.warningThreshold)
-        defaults.set(critical, forKey: DefaultsKey.criticalThreshold)
 
         if alerts {
             alertManager.requestAuthorizationIfNeeded()
@@ -510,61 +459,6 @@ final class TemperatureMonitor: ObservableObject {
         }
     }
 
-    func adjustWarningThreshold(by delta: Int) {
-        setThresholds(
-            warning: warningThreshold + delta,
-            critical: criticalThreshold
-        )
-    }
-
-    func adjustCriticalThreshold(by delta: Int) {
-        setThresholds(
-            warning: warningThreshold,
-            critical: criticalThreshold + delta
-        )
-    }
-
-    func resetThresholds() {
-        setThresholds(
-            warning: Self.defaultWarningThreshold,
-            critical: Self.defaultCriticalThreshold
-        )
-    }
-
-    private func setThresholds(warning: Int, critical: Int) {
-        let (newWarning, newCritical) = Self.sanitizeThresholds(warning: warning, critical: critical)
-
-        defaults.set(newWarning, forKey: DefaultsKey.warningThreshold)
-        defaults.set(newCritical, forKey: DefaultsKey.criticalThreshold)
-
-        warningThreshold = newWarning
-        criticalThreshold = newCritical
-
-        if let tempC = lastTempCMain {
-            let level = TempStatusLevel.from(tempC: tempC, warning: newWarning, critical: newCritical)
-            if statusLevel != level {
-                statusLevel = level
-            }
-        }
-
-        workQueue.async { [weak self] in
-            guard let self else { return }
-            self.warningThresholdWorker = newWarning
-            self.criticalThresholdWorker = newCritical
-        }
-    }
-
-    private static func sanitizeThresholds(warning: Int, critical: Int) -> (Int, Int) {
-        var warn = max(minWarningThreshold, min(warning, maxCriticalThreshold - minThresholdGap))
-        var crit = max(warn + minThresholdGap, min(critical, maxCriticalThreshold))
-
-        if crit > maxCriticalThreshold {
-            crit = maxCriticalThreshold
-            warn = min(warn, crit - minThresholdGap)
-        }
-        return (warn, crit)
-    }
-
     private func readAndPublish() {
         readAndPublish(forceMenuDetails: false)
     }
@@ -582,7 +476,6 @@ final class TemperatureMonitor: ObservableObject {
                     if self.temperatureText != "N/A" { self.temperatureText = "N/A" }
                     if self.sparklineText != "N/A" { self.sparklineText = "N/A" }
                     if self.sparklineRangeText != "--" { self.sparklineRangeText = "--" }
-                    if self.statusLevel != .normal { self.statusLevel = .normal }
                 }
                 return
             }
@@ -599,11 +492,6 @@ final class TemperatureMonitor: ObservableObject {
             }
 
             let rounded = Int(tempC.rounded())
-            let level = TempStatusLevel.from(
-                tempC: tempC,
-                warning: warningThresholdWorker,
-                critical: criticalThresholdWorker
-            )
 
             let isMenuTracking = (menuTrackingCountWorker > 0)
             let shouldPublishMenuDetails =
@@ -624,7 +512,6 @@ final class TemperatureMonitor: ObservableObject {
                     if self.temperatureText != precise { self.temperatureText = precise }
                     if self.sparklineText != sparkline { self.sparklineText = sparkline }
                     if self.sparklineRangeText != rangeText { self.sparklineRangeText = rangeText }
-                    if self.statusLevel != level { self.statusLevel = level }
                 }
                 return
             }
@@ -642,7 +529,6 @@ final class TemperatureMonitor: ObservableObject {
 
                 let statusText = "\(rounded)"
                 if self.statusText != statusText { self.statusText = statusText }
-                if self.statusLevel != level { self.statusLevel = level }
             }
         }
     }
@@ -734,7 +620,6 @@ final class TemperatureMonitor: ObservableObject {
         return result
     }
 
-    var statusColor: Color { statusLevel.color }
 }
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
@@ -775,16 +660,6 @@ struct MacTempMenuBarApp: App {
                 .foregroundStyle(.secondary)
 
             Divider()
-
-            Menu("온도 임계치: \(monitor.warningThreshold)° / \(monitor.criticalThreshold)°") {
-                Button("경고 -1°C") { monitor.adjustWarningThreshold(by: -1) }
-                Button("경고 +1°C") { monitor.adjustWarningThreshold(by: 1) }
-                Divider()
-                Button("위험 -1°C") { monitor.adjustCriticalThreshold(by: -1) }
-                Button("위험 +1°C") { monitor.adjustCriticalThreshold(by: 1) }
-                Divider()
-                Button("기본값으로 복원 (85°/95°)") { monitor.resetThresholds() }
-            }
 
             Toggle("급상승 알림 (10초 내 +8°C)", isOn: Binding(
                 get: { monitor.rapidRiseAlertsEnabled },
@@ -829,7 +704,7 @@ struct MacTempMenuBarApp: App {
                 .font(.system(size: 13, weight: .regular, design: .monospaced))
                 .monospacedDigit()
                 .frame(width: 24, alignment: .trailing)
-                .foregroundStyle(monitor.statusColor)
+                .foregroundStyle(.primary)
                 .accessibilityLabel("Mac 온도 \(monitor.statusText)도")
         }
         .menuBarExtraStyle(.menu)
